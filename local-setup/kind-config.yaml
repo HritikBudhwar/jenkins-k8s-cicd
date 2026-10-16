@@ -1,0 +1,13 @@
+# kind cluster for the local demo. One node keeps it light on a laptop.
+# Two namespaces (demo-dev, demo-prod), each with its own deployer
+# ServiceAccount and kubeconfig, stand in for two separate clusters.
+#
+# The node image is pinned by digest (from the kind v0.33.0 release notes).
+# Since kind v0.27 the nodes read /etc/containerd/certs.d, which setup.sh uses
+# to point "localhost:5001" at the local registry container.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: cicd-demo
+nodes:
+  - role: control-plane
+    image: kindest/node:v1.36.4@sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed
