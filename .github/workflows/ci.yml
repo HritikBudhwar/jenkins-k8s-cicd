@@ -1,0 +1,88 @@
+# ---------------------------------------------------------------------------
+# CI for this repository itself (the platform: shared library, Jenkins image,
+# manifests, scripts). It runs on GitHub's runners, NOT on your Jenkins.
+#
+# Jenkins builds and deploys the app; this workflow checks that changes to the
+# platform are safe to merge:
+#   lint          scripts/validate.sh (hadolint, kubeconform, Groovy syntax,
+#                 shellcheck, actionlint, gitleaks over the full history)
+#   unit-tests    app tests (pytest) + shared library tests (JenkinsPipelineUnit)
+#   jenkins-image builds jenkins/Dockerfile: proves the pinned plugins resolve
+#                 and every CLI tool in the image runs
+#   deploy-kind   creates the kind cluster with local-setup/setup.sh, deploys
+#                 the app to demo-dev and runs the same smoke test as Jenkins
+#
+# Every job only needs Docker and make, exactly like on your laptop.
+# ---------------------------------------------------------------------------
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+
+# Read-only token: nothing here needs to write to the repo.
+permissions:
+  contents: read
+
+# A new push to the same branch cancels the run that is still going.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0               # full history, so gitleaks scans every commit
+          persist-credentials: false
+      - name: Static checks
+        run: make lint
+
+  unit-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: App unit tests (pytest, in the Dockerfile's test stage)
+        run: make test-app
+      - name: Shared library unit tests (JenkinsPipelineUnit)
+        run: make test-lib
+
+  jenkins-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the Jenkins controller image
+        run: docker build -t cicd-demo/jenkins:ci jenkins
+
+  deploy-kind:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: [lint, unit-tests]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Create the kind cluster, namespaces and RBAC
+        run: make cluster
+      - name: Start the local registry
+        run: docker compose -f local-setup/docker-compose.yml up -d registry
+      - name: Build, push and deploy to demo-dev
+        run: make deploy-dev
+      - name: Smoke test
+        run: bash resources/org/devops/smoke-test.sh demo-dev demo-app "$(git rev-parse --short=7 HEAD)-local"
+      - name: Show cluster state on failure
+        if: failure()
+        run: |
+          kubectl --context kind-cicd-demo -n demo-dev get pods -o wide || true
+          kubectl --context kind-cicd-demo -n demo-dev get events --sort-by=.lastTimestamp | tail -n 30 || true
