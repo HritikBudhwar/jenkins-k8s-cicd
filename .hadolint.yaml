@@ -1,0 +1,4 @@
+# hadolint config (Dockerfile linter), used by the pipeline's Lint stage and scripts/validate.sh.
+# Any warning or error fails the build. Every ignored rule needs a comment saying why.
+failure-threshold: warning
+ignored: []
