@@ -22,7 +22,7 @@ repos:
     displayName: "demo-app (Flask sample)"
     source:
       type: github
-      owner: replace-me                 # <- your GitHub username
+      owner: HritikBudhwar              # GitHub user or org that owns the repo (change it in a fork)
       repository: jenkins-k8s-cicd
       credentialsId: github-token
     jenkinsfile: Jenkinsfile

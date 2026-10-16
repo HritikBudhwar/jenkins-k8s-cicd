@@ -35,7 +35,7 @@ Jenkins builds from GitHub, so the repo needs to be there, with a `main` and a `
 
 ```bash
 # Create an empty repo named jenkins-k8s-cicd on github.com first (no README), then:
-git remote add origin https://github.com/<your-user>/jenkins-k8s-cicd.git
+git remote add origin https://github.com/HritikBudhwar/jenkins-k8s-cicd.git   # your fork's URL in a fork
 git push -u origin main
 git push origin main:develop      # develop starts as a copy of main
 ```
@@ -69,15 +69,15 @@ Fill in `.env`. It is git-ignored, and every value is explained in the file:
 | Variable | Value |
 |---|---|
 | `JENKINS_ADMIN_PASSWORD` | A strong password for the Jenkins `admin` user |
-| `GITHUB_USER` | Your GitHub username |
+| `GITHUB_USER` | Your GitHub username (preset to `HritikBudhwar`) |
 | `GITHUB_TOKEN` | The token from step 3 |
 | `GITHUB_WEBHOOK_SECRET` | Output of `openssl rand -hex 20`. You will paste it into GitHub in step 7. |
-| `PLATFORM_REPO_URL` | `https://github.com/<your-user>/jenkins-k8s-cicd.git` |
+| `PLATFORM_REPO_URL` | `https://github.com/HritikBudhwar/jenkins-k8s-cicd.git` (preset; your fork's URL in a fork) |
 
-Then set your GitHub username in **`jenkins/seed/repos.yaml`**: change `owner: replace-me`. Commit and push that change. The seed job reads `repos.yaml` from GitHub, not from your disk:
+**`jenkins/seed/repos.yaml`** already points at `HritikBudhwar/jenkins-k8s-cicd` (`owner: HritikBudhwar`). In a fork, change `owner` to your GitHub username, then commit and push it. The seed job reads `repos.yaml` from GitHub, not from your disk:
 
 ```bash
-git commit -am "Set GitHub owner in repos.yaml" && git push origin main && git push origin main:develop
+git commit -am "chore(seed): set repository owner" && git push origin main && git push origin main:develop
 ```
 
 ## 5. Start the cluster and Jenkins

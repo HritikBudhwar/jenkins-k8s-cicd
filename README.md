@@ -34,8 +34,8 @@ Images are tagged `<commit-sha>-<build-number>` (for example `3f2a9c1-17`). The 
 You need Docker, `make`, `git` and `bash` (on Windows: a WSL2 terminal). [docs/SETUP.md](docs/SETUP.md) covers each step in detail, plus GitHub and the webhook.
 
 ```bash
-cp .env.example .env          # set JENKINS_ADMIN_PASSWORD, GitHub user/token, repo URL
-# set your GitHub username in jenkins/seed/repos.yaml (owner: replace-me)
+cp .env.example .env          # set JENKINS_ADMIN_PASSWORD, GITHUB_TOKEN and GITHUB_WEBHOOK_SECRET
+# in a fork: also set your GitHub user in .env and jenkins/seed/repos.yaml (owner:)
 make cluster                  # kind cluster + namespaces + RBAC + kubeconfigs for Jenkins
 make up                       # build and start Jenkins and the local registry
 # open http://localhost:8080 and log in: the seed job creates the demo-app pipeline
