@@ -1,0 +1,36 @@
+# Default-deny for demo-app pods, then allow only what is needed:
+#   ingress: port 8080 from pods in the same namespace and from a "monitoring"
+#            namespace (Prometheus)
+#   egress : DNS only (the app calls nothing else)
+# NetworkPolicy is enforced only when the CNI supports it (kind's kindnet does
+# since kind v0.24; Calico/Cilium do as well).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: demo-app
+  labels:
+    app: demo-app
+spec:
+  podSelector:
+    matchLabels:
+      app: demo-app
+  policyTypes: ["Ingress", "Egress"]
+  ingress:
+    - from:
+        - podSelector: {}                      # any pod in this namespace
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

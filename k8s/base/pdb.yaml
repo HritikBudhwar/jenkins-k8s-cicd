@@ -1,0 +1,14 @@
+# Limits voluntary disruptions (node drains, cluster upgrades) to one pod at a
+# time. maxUnavailable (not minAvailable) is used so a 1-replica dev
+# environment can still be drained.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: demo-app
+  labels:
+    app: demo-app
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: demo-app

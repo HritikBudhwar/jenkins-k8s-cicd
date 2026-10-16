@@ -1,0 +1,22 @@
+# ClusterIP Service: a stable in-cluster address that load-balances across
+# Ready pods. Not exposed outside the cluster; the smoke test reaches it with
+# `kubectl port-forward`.
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-app
+  labels:
+    app: demo-app
+  annotations:
+    # Convention used by many Prometheus scrape configs (see docs/MONITORING.md).
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: /metrics
+spec:
+  type: ClusterIP
+  selector:
+    app: demo-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

@@ -1,0 +1,28 @@
+# Base: everything shared by all environments. Overlays in ../overlays/<env>
+# change only what differs (namespace, replicas, resources, config values).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - hpa.yaml
+  - pdb.yaml
+  - networkpolicy.yaml
+
+# The ConfigMap is generated, not written by hand. Kustomize appends a hash of
+# its contents to the name (demo-app-config-<hash>) and updates the Deployment
+# to match. Changing a value therefore changes the pod template, which
+# triggers a rolling update, and `kubectl rollout undo` brings back the old
+# config together with the old image.
+configMapGenerator:
+  - name: demo-app-config
+    literals:
+      - APP_ENV=base
+      - LOG_LEVEL=info
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: jenkins-k8s-cicd
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: false     # never change selectors: they are immutable on Deployments
