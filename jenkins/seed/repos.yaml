@@ -1,0 +1,58 @@
+# ---------------------------------------------------------------------------
+# Repo + cluster onboarding: the ONLY file to edit to add a repo or a cluster.
+#
+# The seed job (jenkins/seed/seedJob.groovy) reads this file and creates one
+# Multibranch Pipeline per entry. The `pipeline:` section is stored on that
+# job's folder and read by standardPipeline at build time, so deploy targets
+# live here, in one reviewed place, not scattered over Jenkinsfiles.
+#
+# Fields
+#   name          Jenkins job name (letters, digits, . _ -)
+#   source.type   github | git
+#     github:     owner, repository, credentialsId (GitHub PAT, "Username with password")
+#     git:        remote (any Git URL), credentialsId (optional)
+#   jenkinsfile   path of the Jenkinsfile in that repo (default: Jenkinsfile)
+#   branches      space-separated wildcards of branches/PRs Jenkins builds
+#   pipeline      passed to standardPipeline (keys: src/org/devops/PipelineConfig.groovy)
+#     deployTargets: one entry per cluster/namespace. Several entries with the
+#                    same environment = deploy to several clusters in a row.
+# ---------------------------------------------------------------------------
+repos:
+  - name: demo-app
+    displayName: "demo-app (Flask sample)"
+    source:
+      type: github
+      owner: replace-me                 # <- your GitHub username
+      repository: jenkins-k8s-cicd
+      credentialsId: github-token
+    jenkinsfile: Jenkinsfile
+    branches: "main develop feature/* PR-*"
+    pipeline:
+      devBranch: develop
+      prodBranch: main
+      approvers: admin
+      deployTargets:
+        - environment: dev
+          cluster: kind-cicd-demo
+          namespace: demo-dev
+          credentialsId: kubeconfig-dev
+        - environment: prod
+          cluster: kind-cicd-demo         # a real setup would point at a separate prod cluster
+          namespace: demo-prod
+          credentialsId: kubeconfig-prod
+
+  # Example: onboarding a second repo that deploys to two prod clusters.
+  # Uncomment, adjust, push: the seed job creates the job within ~5 minutes.
+  #
+  # - name: orders-service
+  #   source:
+  #     type: github
+  #     owner: my-org
+  #     repository: orders-service
+  #     credentialsId: github-token
+  #   branches: "main develop PR-*"
+  #   pipeline:
+  #     deployTargets:
+  #       - { environment: dev,  cluster: dev-eks,     namespace: orders, credentialsId: kubeconfig-dev-eks }
+  #       - { environment: prod, cluster: prod-eu-gke, namespace: orders, credentialsId: kubeconfig-prod-eu }
+  #       - { environment: prod, cluster: prod-us-gke, namespace: orders, credentialsId: kubeconfig-prod-us }
