@@ -1,0 +1,18 @@
+# Strategic-merge patch: only the fields listed here change; the rest comes from base.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: demo-app
+          resources:
+            requests:
+              cpu: 25m
+              memory: 48Mi
+            limits:
+              cpu: 200m
+              memory: 96Mi

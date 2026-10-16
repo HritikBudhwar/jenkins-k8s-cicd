@@ -1,0 +1,20 @@
+# Prod overlay: highly available. Three replicas, more resources, info logging.
+# The pipeline sets the image tag at deploy time, as in the dev overlay.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: demo-prod
+
+resources:
+  - ../../base
+
+configMapGenerator:
+  - name: demo-app-config
+    behavior: merge
+    literals:
+      - APP_ENV=prod
+      - LOG_LEVEL=info
+
+patches:
+  - path: patch-deployment.yaml
+  - path: patch-hpa.yaml

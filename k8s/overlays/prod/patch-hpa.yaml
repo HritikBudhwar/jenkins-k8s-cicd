@@ -1,0 +1,7 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: demo-app
+spec:
+  minReplicas: 3   # keep equal to the Deployment's replicas in patch-deployment.yaml
+  maxReplicas: 10

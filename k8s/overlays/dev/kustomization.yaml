@@ -1,0 +1,22 @@
+# Dev overlay: small and cheap. One replica, low resources, debug logging.
+# The pipeline adds an `images:` entry here at deploy time
+# (`kustomize edit set image`) and can override the namespace from the
+# deploy target config. Neither change is committed.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: demo-dev
+
+resources:
+  - ../../base
+
+configMapGenerator:
+  - name: demo-app-config
+    behavior: merge            # change values of the base ConfigMap, keep the rest
+    literals:
+      - APP_ENV=dev
+      - LOG_LEVEL=debug
+
+patches:
+  - path: patch-deployment.yaml
+  - path: patch-hpa.yaml
