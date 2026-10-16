@@ -1,0 +1,12 @@
+# gitleaks config (secret scanner), used by the pipeline's Secret Scan stage and scripts/validate.sh.
+# Starts from gitleaks' built-in rules and allow-lists only known placeholders.
+title = "jenkins-k8s-cicd gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Template values that are not real secrets"
+regexes = [
+  '''replace-me''',
+]
