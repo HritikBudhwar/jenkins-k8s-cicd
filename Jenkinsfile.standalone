@@ -1,0 +1,270 @@
+/*
+ * Jenkinsfile.standalone: the WHOLE pipeline in one file, without the shared library.
+ *
+ * Purpose: read the complete flow top to bottom in one place. It does the same
+ * as `standardPipeline(...)` for demo-app, with the steps written inline.
+ * The real setup uses the short Jenkinsfile + shared library, because copying
+ * this file into every repo would mean N copies to keep in sync.
+ *
+ * To run it: create a plain "Pipeline" job (Pipeline script from SCM, script
+ * path Jenkinsfile.standalone) and tick "GitHub hook trigger for GITScm polling",
+ * or point a Multibranch job's Script Path at this file.
+ *
+ * Plugins used: git, github (githubPush), credentials-binding, kubernetes-cli
+ * (withKubeConfig), timestamper, junit, ws-cleanup, pipeline-model-definition.
+ */
+pipeline {
+    // No pipeline-wide agent: a build waiting at Manual Approval must not hold an
+    // executor. The two stage groups below each take an agent for their work.
+    agent none
+
+    environment {
+        APP_NAME           = 'demo-app'
+        REGISTRY           = 'localhost:5001'
+        DEV_BRANCH         = 'develop'
+        PROD_BRANCH        = 'main'
+        DEV_CLUSTER        = 'kind-cicd-demo'
+        DEV_NAMESPACE      = 'demo-dev'
+        DEV_KUBECONFIG     = 'kubeconfig-dev'     // Jenkins "Secret file" credential ID
+        PROD_CLUSTER       = 'kind-cicd-demo'
+        PROD_NAMESPACE     = 'demo-prod'
+        PROD_KUBECONFIG    = 'kubeconfig-prod'
+        PROD_APPROVERS     = 'admin'              // Jenkins users/groups allowed to approve prod
+        ROLLOUT_TIMEOUT    = '120s'
+        K8S_SCHEMA_VERSION = '1.36.0'             // kubeconform schema version
+    }
+
+    options {
+        timeout(time: 60, unit: 'MINUTES')
+        timestamps()
+        buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
+        disableConcurrentBuilds()
+        skipDefaultCheckout(true)
+    }
+
+    triggers {
+        // Primary: GitHub webhook -> /github-webhook/ -> build (github plugin).
+        githubPush()
+        // Fallback: poll every ~15 minutes in case a webhook delivery is lost.
+        // Trade-off: extra load on the Git server and up to 15 min delay, so it
+        // is a safety net only, never the main trigger.
+        pollSCM('H/15 * * * *')
+    }
+
+    stages {
+        stage('Build and Test') {
+            agent any
+            stages {
+                stage('Checkout') {
+                    steps {
+                        script {
+                            retry(3) {
+                                def scmVars = checkout(scm)
+                                env.GIT_COMMIT = scmVars.GIT_COMMIT
+                                env.GIT_BRANCH = scmVars.GIT_BRANCH
+                            }
+                            // Multibranch sets BRANCH_NAME; a plain Pipeline job only has GIT_BRANCH ("origin/main").
+                            env.BRANCH = (env.BRANCH_NAME ?: env.GIT_BRANCH).replaceFirst(/^origin\//, '')
+                            env.IMAGE_TAG = "${env.GIT_COMMIT.take(7)}-${env.BUILD_NUMBER}"      // never "latest"
+                            env.IMAGE = "${env.REGISTRY}/${env.APP_NAME}:${env.IMAGE_TAG}"
+                            env.DEPLOY_ENV = env.BRANCH == env.PROD_BRANCH ? 'prod' : (env.BRANCH == env.DEV_BRANCH ? 'dev' : 'none')
+                            sh 'mkdir -p reports'
+                            echo "Branch ${env.BRANCH}: image ${env.IMAGE}, deploys to: ${env.DEPLOY_ENV}"
+                        }
+                    }
+                }
+
+                stage('Secret Scan') {
+                    steps {
+                        sh 'gitleaks dir . --redact --no-banner --exit-code 1 --report-format json --report-path reports/gitleaks.json'
+                    }
+                }
+
+                stage('Lint') {
+                    steps {
+                        sh 'hadolint app/Dockerfile'
+                        // Validate both overlays against the Kubernetes schema. Retry: schemas are downloaded.
+                        retry(3) {
+                            sh '''#!/bin/bash
+                                set -euo pipefail
+                                for overlay in k8s/overlays/dev k8s/overlays/prod; do
+                                  kustomize build "$overlay" | kubeconform -strict -summary -kubernetes-version "$K8S_SCHEMA_VERSION" -
+                                done
+                            '''
+                        }
+                    }
+                }
+
+                stage('Unit Test') {
+                    steps {
+                        sh "docker build --target test -t ${APP_NAME}-test:${IMAGE_TAG} app"
+                        // `|| true` + exit-code file: keep going so the JUnit report is always collected.
+                        sh """
+                            docker run --name ${APP_NAME}-test-${BUILD_NUMBER} ${APP_NAME}-test:${IMAGE_TAG}; echo \$? > reports/test-exit-code
+                            docker cp ${APP_NAME}-test-${BUILD_NUMBER}:/src/reports/junit.xml reports/junit.xml || true
+                            docker rm -f ${APP_NAME}-test-${BUILD_NUMBER} >/dev/null 2>&1 || true
+                        """
+                        junit(testResults: 'reports/junit.xml', allowEmptyResults: true)
+                        script {
+                            if (readFile('reports/test-exit-code').trim() != '0') {
+                                error('Unit tests failed: see the Test Result page. Nothing was pushed or deployed.')
+                            }
+                        }
+                    }
+                }
+
+                stage('Build Image') {
+                    steps {
+                        retry(2) {
+                            sh "docker build --build-arg APP_VERSION=${IMAGE_TAG} --build-arg GIT_COMMIT=${GIT_COMMIT} -t ${IMAGE} app"
+                        }
+                    }
+                }
+
+                stage('Security Scan') {
+                    steps {
+                        retry(3) { sh 'trivy image --download-db-only --no-progress' }
+                        script {
+                            // Exit code 3 = vulnerabilities found; anything else non-zero = Trivy error.
+                            int status = sh(returnStatus: true, script: """trivy image --skip-db-update --no-progress \
+                                --severity HIGH,CRITICAL --ignore-unfixed --exit-code 3 \
+                                --format table --output reports/trivy-report.txt ${IMAGE}""")
+                            sh 'cat reports/trivy-report.txt || true'
+                            if (status == 3) {
+                                error("Security scan failed: HIGH/CRITICAL vulnerabilities with a fix available in ${IMAGE}. Not pushed, not deployed.")
+                            } else if (status != 0) {
+                                error("Trivy could not complete the scan (exit code ${status}). Not pushed.")
+                            }
+                        }
+                    }
+                }
+
+                stage('Push Image') {
+                    when { expression { env.DEPLOY_ENV != 'none' } }
+                    steps {
+                        retry(3) { sh "docker push ${IMAGE}" }   // local registry: no login needed
+                    }
+                }
+
+                stage('Deploy to Dev') {
+                    when { expression { env.DEPLOY_ENV == 'dev' } }
+                    steps {
+                        script { deployWithRollback(env.DEV_KUBECONFIG, env.DEV_NAMESPACE, 'k8s/overlays/dev') }
+                    }
+                }
+
+                stage('Smoke Test') {
+                    when { expression { env.DEPLOY_ENV == 'dev' } }
+                    steps {
+                        script { smoke(env.DEV_KUBECONFIG, env.DEV_NAMESPACE) }
+                    }
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts(artifacts: 'reports/**', allowEmptyArchive: true)
+                }
+                cleanup {
+                    sh "docker rmi ${env.IMAGE ?: ''} ${APP_NAME}-test:${env.IMAGE_TAG ?: 'none'} >/dev/null 2>&1 || true"
+                    cleanWs(deleteDirs: true, notFailBuild: true)
+                }
+            }
+        }
+
+        stage('Manual Approval') {
+            when { expression { env.DEPLOY_ENV == 'prod' } }
+            steps {
+                timeout(time: 30, unit: 'MINUTES') {
+                    input(message: "Deploy ${env.IMAGE} to ${env.PROD_CLUSTER}/${env.PROD_NAMESPACE}?",
+                          ok: 'Deploy to prod', submitter: env.PROD_APPROVERS)
+                }
+            }
+        }
+
+        // After approval: a fresh agent and workspace, so check out again and make
+        // sure it is the commit that was built and approved.
+        stage('Deploy to Prod') {
+            when {
+                beforeAgent true
+                expression { env.DEPLOY_ENV == 'prod' }
+            }
+            agent any
+            steps {
+                script {
+                    def scmVars = checkout(scm)
+                    if (scmVars.GIT_COMMIT != env.GIT_COMMIT) {
+                        error("Checked out ${scmVars.GIT_COMMIT}, but ${env.GIT_COMMIT} was built and approved. Not deploying.")
+                    }
+                    sh 'mkdir -p reports'
+                    deployWithRollback(env.PROD_KUBECONFIG, env.PROD_NAMESPACE, 'k8s/overlays/prod')
+                    smoke(env.PROD_KUBECONFIG, env.PROD_NAMESPACE)
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts(artifacts: 'reports/**', allowEmptyArchive: true)
+                }
+                cleanup {
+                    cleanWs(deleteDirs: true, notFailBuild: true)
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "SUCCESS: ${env.IMAGE} (branch ${env.BRANCH}, deploy: ${env.DEPLOY_ENV})"
+            script { currentBuild.description = "${env.IMAGE_TAG} -> ${env.DEPLOY_ENV}" }
+        }
+        failure {
+            echo "FAILURE on branch ${env.BRANCH}: see the first red stage. Console: ${env.BUILD_URL}console"
+            script { currentBuild.description = 'FAILED' }
+        }
+    }
+}
+
+// --------------------------------------------------------------------------
+// Helper methods (in the shared library these are vars/deployToK8s.groovy and
+// vars/smokeTest.groovy).
+// --------------------------------------------------------------------------
+
+/** kustomize set image -> kubectl apply -> rollout status; on failure rollout undo + fail. */
+def deployWithRollback(String credentialsId, String namespace, String overlay) {
+    withKubeConfig([credentialsId: credentialsId]) {
+        dir(overlay) {
+            sh "kustomize edit set image ${APP_NAME}=${IMAGE}"
+            sh "kustomize edit set namespace ${namespace}"
+        }
+        sh "kustomize build ${overlay} > reports/manifest-${namespace}.yaml"
+        sh "kubectl apply -n ${namespace} -f reports/manifest-${namespace}.yaml"
+
+        int rollout = sh(returnStatus: true,
+                         script: "kubectl -n ${namespace} rollout status deployment/${APP_NAME} --timeout=${ROLLOUT_TIMEOUT}")
+        if (rollout != 0) {
+            sh(returnStatus: true, script: "kubectl -n ${namespace} get pods -l app=${APP_NAME}; kubectl -n ${namespace} get events --sort-by=.lastTimestamp | tail -n 15")
+            int undo = sh(returnStatus: true, script: """
+                kubectl -n ${namespace} rollout undo deployment/${APP_NAME} &&
+                kubectl -n ${namespace} rollout status deployment/${APP_NAME} --timeout=${ROLLOUT_TIMEOUT}
+            """)
+            error(undo == 0
+                ? "Deploy of ${IMAGE} to ${namespace} failed and was AUTOMATICALLY ROLLED BACK to the previous revision."
+                : "Deploy of ${IMAGE} to ${namespace} failed and the rollback ALSO failed: fix it manually now.")
+        }
+    }
+}
+
+/** Port-forward to the Service and check health, readiness and the deployed version. */
+def smoke(String credentialsId, String namespace) {
+    withKubeConfig([credentialsId: credentialsId]) {
+        sh """#!/bin/bash
+            set -euo pipefail
+            kubectl -n ${namespace} port-forward svc/${APP_NAME} :80 > pf.log 2>&1 &
+            PF=\$!; trap 'kill \$PF' EXIT
+            for i in \$(seq 1 20); do PORT=\$(sed -n 's/^Forwarding from 127.0.0.1:\\([0-9]*\\).*/\\1/p' pf.log | head -n1); [ -n "\$PORT" ] && break; sleep 0.5; done
+            curl -fsS --retry 5 --retry-all-errors --retry-delay 2 http://127.0.0.1:\$PORT/health
+            curl -fsS --retry 5 --retry-all-errors --retry-delay 2 http://127.0.0.1:\$PORT/ready
+            curl -fsS http://127.0.0.1:\$PORT/ | grep -Eq '"version": ?"${IMAGE_TAG}"'
+            echo "Smoke test passed in ${namespace}"
+        """
+    }
+}
