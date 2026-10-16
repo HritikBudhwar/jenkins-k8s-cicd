@@ -1,0 +1,76 @@
+# ---------------------------------------------------------------------------
+# Identity that Jenkins uses to deploy into ONE namespace.
+#
+# Apply it once per target namespace, as a cluster admin:
+#   kubectl apply -n demo-dev  -f k8s/rbac/jenkins-deployer.yaml
+#   kubectl apply -n demo-prod -f k8s/rbac/jenkins-deployer.yaml
+# No namespace is written in this file, so `-n` decides where it goes.
+#
+# Least privilege: a Role (namespace-scoped), not a ClusterRole. It cannot:
+#   - read Secrets
+#   - delete anything
+#   - touch other namespaces or cluster-wide objects
+#   - exec into pods
+# Then generate a kubeconfig for Jenkins with k8s/rbac/generate-kubeconfig.sh.
+# ---------------------------------------------------------------------------
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: jenkins-deployer
+  labels:
+    app.kubernetes.io/part-of: jenkins-k8s-cicd
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: jenkins-deployer
+  labels:
+    app.kubernetes.io/part-of: jenkins-k8s-cicd
+rules:
+  # `kubectl apply` reads (get) and then creates or patches each object.
+  # `rollout status` watches the Deployment; `rollout undo` patches it.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # `rollout status` / `rollout undo` read ReplicaSets to find revisions.
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "list", "watch"]
+  # The other objects in k8s/base.
+  - apiGroups: [""]
+    resources: ["services", "configmaps"]
+    verbs: ["get", "list", "create", "update", "patch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "create", "update", "patch"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "create", "update", "patch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "create", "update", "patch"]
+  # Read-only access for failure diagnostics printed in the build log.
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "events"]
+    verbs: ["get", "list", "watch"]
+  # The smoke test uses `kubectl port-forward svc/<app>`.
+  - apiGroups: [""]
+    resources: ["pods/portforward"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: jenkins-deployer
+  labels:
+    app.kubernetes.io/part-of: jenkins-k8s-cicd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: jenkins-deployer
+subjects:
+  - kind: ServiceAccount
+    name: jenkins-deployer   # namespace defaults to the RoleBinding's namespace
