@@ -1,0 +1,2 @@
+// Gradle project that unit-tests the Jenkins shared library (../src, ../vars).
+rootProject.name = 'shared-library-tests'

@@ -1,0 +1,78 @@
+/*
+ * Unit tests for the Jenkins shared library, using JenkinsPipelineUnit.
+ *
+ * JenkinsPipelineUnit runs vars/*.groovy outside Jenkins: steps like sh,
+ * withKubeConfig or error are replaced by mocks we control, so we can test
+ * "if rollout status fails, rollout undo is called" in milliseconds.
+ *
+ * Run:  ./gradlew test     (or `make test-lib` from the repo root)
+ */
+plugins {
+    id 'groovy'
+}
+
+repositories {
+    mavenCentral()
+    // JenkinsPipelineUnit and Jenkins' groovy-cps are published to the Jenkins repository.
+    maven { url = 'https://repo.jenkins-ci.org/public/' }
+}
+
+dependencies {
+    // Groovy 2.4.21 = the Groovy version inside Jenkins' pipeline engine, so the
+    // library is compiled and tested with the same language rules as in production.
+    implementation 'org.codehaus.groovy:groovy-all:2.4.21'
+    // Provides the @NonCPS annotation used in ../src (same version JenkinsPipelineUnit uses).
+    implementation 'com.cloudbees:groovy-cps:4177.vb_203fe395445'
+
+    testImplementation 'com.lesfurets:jenkins-pipeline-unit:1.30'   // newest release that runs on Java 17 (1.31 needs Java 21)
+    testImplementation 'junit:junit:4.13.2'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+sourceSets {
+    // The library's classes (src/org/devops/*.groovy) are compiled as normal code...
+    main {
+        groovy { srcDirs = ['../src'] }
+    }
+    // ...and the tests live here. vars/ is loaded at test time by JenkinsPipelineUnit.
+    test {
+        groovy { srcDirs = ['src/test/groovy'] }
+    }
+}
+
+test {
+    useJUnit()
+    // vars/ is loaded at runtime, not compiled, so tell Gradle it is an input:
+    // otherwise a change to a step would not re-run the tests ("UP-TO-DATE").
+    inputs.dir('../vars')
+    inputs.dir('../resources')
+    testLogging {
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat = 'full'
+        showStandardStreams = false
+    }
+}
+
+/*
+ * ./gradlew checkGroovySyntax: parse every Groovy file in the repo (Jenkinsfiles,
+ * vars/, src/, the seed script, these tests) with Groovy 2.4, the version
+ * Jenkins runs, so syntax newer Groovy accepts but Jenkins rejects is caught.
+ * Used by scripts/validate.sh.
+ */
+tasks.register('checkGroovySyntax', JavaExec) {
+    description = 'Parses all Groovy files in the repository and reports syntax errors.'
+    classpath = configurations.runtimeClasspath
+    mainClass = 'groovy.ui.GroovyMain'
+    workingDir = rootDir.parentFile          // repo root, so paths print as e.g. vars/deployToK8s.groovy
+    def groovyFiles = fileTree('..') {
+        include 'Jenkinsfile*', 'vars/**/*.groovy', 'src/**/*.groovy', 'jenkins/**/*.groovy', 'test/src/**/*.groovy'
+        exclude '.git/**', 'test/.gradle/**', 'test/build/**', 'test/bin/**'
+    }
+    args = ['scripts/check-groovy-syntax.groovy'] +
+           groovyFiles.files.collect { rootDir.parentFile.toPath().relativize(it.toPath()).toString() }.sort()
+}
