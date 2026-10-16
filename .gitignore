@@ -1,0 +1,42 @@
+# ---------------------------------------------------------------------------
+# Secrets: never commit these. Real values live in the Jenkins Credentials
+# store, or in local files that are ignored here.
+# ---------------------------------------------------------------------------
+.env
+*.env
+!.env.example
+local-setup/.secrets/
+*kubeconfig*
+!k8s/rbac/generate-kubeconfig.sh
+*.pem
+*.key
+*.crt
+id_rsa*
+
+# Local tool downloads made by local-setup/setup.sh
+local-setup/.bin/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Gradle / JenkinsPipelineUnit
+test/.gradle/
+test/build/
+# test/bin/ is written by the VS Code Java extension
+test/bin/
+.gradle/
+
+# Pipeline output
+reports/
+trivy-report.*
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
