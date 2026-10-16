@@ -1,6 +1,6 @@
 # Monitoring
 
-There are three things to watch: **the pipeline** (are builds passing, are deploys going out), **the app** (is it serving), and **the cluster** (are the rollouts healthy). This page covers what each one provides and how to connect Prometheus.
+Three things to watch: **the pipeline** (are builds passing, are deploys going out), **the app** (is it serving) and **the cluster** (are rollouts healthy).
 
 - [Pipeline: what every build reports](#pipeline-what-every-build-reports)
 - [Jenkins metrics in Prometheus](#jenkins-metrics-in-prometheus)
@@ -19,7 +19,7 @@ No setup needed:
 | Build list (build description) | `b977fea-12 -> dev: kind-cicd-demo/demo-dev`, `FAILURE in Security Scan`, or `(build + test only)` |
 | *Test Result* page | Passed and failed tests, with history across builds |
 | *Build Artifacts* | `junit.xml`, `trivy-report.txt`, `gitleaks.json`, and the exact manifests applied to each cluster |
-| GitHub | A green or red status on the commit and pull request, posted by the GitHub Branch Source plugin (needs the *Commit statuses* token permission) |
+| GitHub | A green or red status on the commit and pull request, posted by the GitHub Branch Source plugin (needs the *Commit statuses* token permission). Not tested locally. |
 
 Jenkins keeps the last 20 builds per branch and the artifacts of the last 10.
 
@@ -128,7 +128,7 @@ kubectl --context kind-cicd-demo -n demo-dev port-forward svc/demo-app 8081:80
 curl -s localhost:8081/metrics | grep app_requests_total
 ```
 
-**Scraping from inside the cluster.** The app's NetworkPolicy allows ingress on port 8080 from a namespace named `monitoring`, so a Prometheus there can scrape the pods. With the [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) Helm chart, which is not installed by this demo, a `PodMonitor` like the one below selects the pods. By default the chart only picks up PodMonitors labeled with its Helm release name:
+**Scraping from inside the cluster.** The app's NetworkPolicy allows ingress on port 8080 from a namespace named `monitoring`, so a Prometheus there can scrape the pods. With the [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack) Helm chart (not installed by this demo, and this example is not tested), a `PodMonitor` like the one below selects the pods. By default the chart only picks up PodMonitors labeled with its Helm release name:
 
 ```yaml
 apiVersion: monitoring.coreos.com/v1

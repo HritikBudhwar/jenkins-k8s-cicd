@@ -1,10 +1,13 @@
 /*
  * Jenkinsfile.standalone: the WHOLE pipeline in one file, without the shared library.
  *
- * Purpose: read the complete flow top to bottom in one place. It does the same
- * as `standardPipeline(...)` for demo-app, with the steps written inline.
- * The real setup uses the short Jenkinsfile + shared library, because copying
- * this file into every repo would mean N copies to keep in sync.
+ * Purpose: read the flow top to bottom in one place. It follows
+ * `standardPipeline(...)` for demo-app with the steps written inline, but
+ * simplified: one cluster per environment, no config validation and a shorter
+ * smoke test. The real setup uses the short Jenkinsfile + shared library,
+ * because copying this file into every repo would mean N copies to keep in sync.
+ *
+ * Not run as a job locally; only checked with Jenkins' declarative linter.
  *
  * To run it: create a plain "Pipeline" job (Pipeline script from SCM, script
  * path Jenkinsfile.standalone) and tick "GitHub hook trigger for GITScm polling",

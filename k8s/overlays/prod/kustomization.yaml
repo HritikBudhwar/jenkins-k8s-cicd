@@ -1,4 +1,4 @@
-# Prod overlay: highly available. Three replicas, more resources, info logging.
+# Prod overlay: three replicas and more resources.
 # The pipeline sets the image tag at deploy time, as in the dev overlay.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization

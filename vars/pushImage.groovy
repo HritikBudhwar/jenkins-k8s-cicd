@@ -2,7 +2,8 @@
  * pushImage: push the scanned image to the registry.
  *
  * If cfg.registryCredentialsId is set, log in with that Jenkins
- * "Username with password" credential. Security details:
+ * "Username with password" credential first. Not tested locally: the local
+ * registry needs no login. Security details:
  *   - withCredentials masks the values in the build log
  *   - the password goes through stdin, never on the command line (where `ps` could see it)
  *   - the shell command is in single quotes, so Groovy never interpolates the secret

@@ -1,10 +1,10 @@
 # jenkins-k8s-cicd
 
-A complete CI/CD pipeline built with **Git, Jenkins and Kubernetes**, which you can run on a laptop.
+A CI/CD pipeline built with **Git, Jenkins and Kubernetes** that runs on a laptop.
 
 A push to GitHub triggers Jenkins. Jenkins scans the code for secrets, lints it, runs the unit tests, builds a container image, scans the image for vulnerabilities, pushes it and deploys it to Kubernetes. If the new version does not become healthy, Jenkins **rolls it back automatically**. Production releases wait for a person to approve them.
 
-Everything is code: the Jenkins controller, its plugins and credentials (Configuration-as-Code), the jobs (Job DSL seed job), the pipeline (a Groovy shared library), the Kubernetes manifests (Kustomize) and the RBAC.
+The Jenkins controller, its plugins and credentials (Configuration-as-Code), the jobs (Job DSL seed job), the pipeline (a Groovy shared library), the Kubernetes manifests (Kustomize) and the RBAC are all files in this repo.
 
 ```
  git push ──► GitHub ──webhook──► Jenkins (standardPipeline from the shared library)
@@ -26,6 +26,8 @@ Everything is code: the Jenkins controller, its plugins and credentials (Configu
 | `develop` | yes | yes | `demo-dev` | no |
 | `main` | yes | yes | `demo-prod` | yes, in Jenkins |
 | `feature/*`, `PR-*` | yes | no | nothing | no |
+
+Pull request builds (`PR-*`) are configured but were not tested locally.
 
 Images are tagged `<commit-sha>-<build-number>` (for example `3f2a9c1-17`). The pipeline never uses `latest`, so every deploy can be traced to a commit and rolled back.
 
@@ -53,7 +55,7 @@ Run `make` to list every target. `make clean` deletes everything the demo create
 | `k8s/rbac/` | Least-privilege `jenkins-deployer` ServiceAccount and a script that generates its kubeconfig |
 | `vars/`, `src/`, `resources/` | Jenkins shared library: `standardPipeline` and one step per stage |
 | `Jenkinsfile` | How a repo uses the library (about 10 lines) |
-| `Jenkinsfile.standalone` | The same pipeline written out in a single file, without the library, so you can read it top to bottom |
+| `Jenkinsfile.standalone` | A simplified version of the same pipeline in one file, without the library, to read top to bottom (lint-checked, not run as a job) |
 | `jenkins/` | Controller image: pinned plugins, CLI tools, JCasC config, the seed job and `repos.yaml` |
 | `local-setup/` | kind cluster config, `setup.sh` and docker compose (Jenkins + registry) |
 | `scripts/` | `validate.sh` (all static checks) and `break-deploy.sh` (rollback demo) |
@@ -79,6 +81,15 @@ make test    # app unit tests + shared library unit tests
 ```
 
 GitHub Actions runs both on every push to `main` or `develop` and on every pull request, then deploys the app to a kind cluster and smoke-tests it.
+
+## What was tested, and what was not
+
+Tested on Ubuntu Linux with kind and the Jenkins from this repo, pointed at a local Git server instead of GitHub:
+the full pipeline on `develop`, `main` (approve and abort) and a feature branch, plus the failure scenarios in [docs/TESTING.md](docs/TESTING.md):
+failing unit test, vulnerable dependency, broken deploy rolled back, failed smoke test rolled back, missing credential and a config typo.
+The GitHub Actions workflow runs on GitHub and passes.
+
+Not tested end to end: the GitHub webhook through ngrok (only its signature check), a real GitHub token and commit statuses, pull request builds, registry login (the local registry has none), macOS, Windows and ARM machines.
 
 ## License
 

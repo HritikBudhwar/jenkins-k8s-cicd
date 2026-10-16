@@ -1,13 +1,7 @@
 /**
- * deployToK8s: deploy env.IMAGE to one target (cluster + namespace), with automatic rollback.
- *
- * Steps:
- *   1. check the target's kubeconfig credential exists (clear error if not)
- *   2. kustomize edit set image / set namespace   -> render the manifests
- *   3. kubectl apply
- *   4. kubectl rollout status --timeout           -> wait until the new pods are Ready
- *   5. on timeout/failure: print diagnostics, kubectl rollout undo, and fail
- *      the build with a message that says the rollback happened
+ * deployToK8s: deploy env.IMAGE to one target (cluster + namespace). If the
+ * rollout does not become ready in time, print diagnostics, run
+ * kubectl rollout undo and fail the build saying so.
  *
  * A target looks like (see PipelineConfig.validateTarget):
  *   [environment: 'dev', cluster: 'kind-cicd-demo', namespace: 'demo-dev',

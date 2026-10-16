@@ -1,7 +1,7 @@
 # ---------------------------------------------------------------------------
 # Local demo: Jenkins controller + container registry.
 #
-# Start with `make up` (it runs `make cluster` checks and passes .env).
+# Start with `make up` (it checks .env and the kubeconfigs exist first).
 # Both containers join kind's Docker network "kind", so:
 #   - Jenkins reaches the Kubernetes API at https://cicd-demo-control-plane:6443
 #   - the kind node pulls images from this registry (container name kind-registry)

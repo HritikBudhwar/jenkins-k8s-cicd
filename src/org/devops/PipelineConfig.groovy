@@ -15,7 +15,7 @@ import com.cloudbees.groovy.cps.NonCPS
  * lets them use closures (each/collect/findAll) safely inside Jenkins.
  *
  * Config sources, merged in this order (later wins):
- *   1. DEFAULTS below
+ *   1. defaults() below
  *   2. the repo's `pipeline:` section in jenkins/seed/repos.yaml (via the seed job)
  *   3. the map passed in the repo's Jenkinsfile
  */

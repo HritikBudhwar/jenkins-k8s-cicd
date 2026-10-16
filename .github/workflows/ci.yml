@@ -1,19 +1,6 @@
-# ---------------------------------------------------------------------------
-# CI for this repository itself (the platform: shared library, Jenkins image,
-# manifests, scripts). It runs on GitHub's runners, NOT on your Jenkins.
-#
-# Jenkins builds and deploys the app; this workflow checks that changes to the
-# platform are safe to merge:
-#   lint          scripts/validate.sh (hadolint, kubeconform, Groovy syntax,
-#                 shellcheck, actionlint, gitleaks over the full history)
-#   unit-tests    app tests (pytest) + shared library tests (JenkinsPipelineUnit)
-#   jenkins-image builds jenkins/Dockerfile: proves the pinned plugins resolve
-#                 and every CLI tool in the image runs
-#   deploy-kind   creates the kind cluster with local-setup/setup.sh, deploys
-#                 the app to demo-dev and runs the same smoke test as Jenkins
-#
-# Every job only needs Docker and make, exactly like on your laptop.
-# ---------------------------------------------------------------------------
+# CI for this repo's own code (shared library, Jenkins image, manifests,
+# scripts), on GitHub's runners. Jenkins is what builds and deploys the app;
+# this checks that changes to the pipeline itself are safe to merge.
 name: CI
 
 on:
@@ -26,7 +13,6 @@ on:
 permissions:
   contents: read
 
-# A new push to the same branch cancels the run that is still going.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true

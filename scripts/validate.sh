@@ -1,17 +1,6 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# Static checks for the whole repo. Run by `make lint` and by GitHub Actions
-# (.github/workflows/ci.yml), so a mistake is caught before Jenkins sees it.
-#
-#   1. hadolint     Dockerfiles (app/ and jenkins/)
-#   2. kubeconform  every Kustomize overlay + the RBAC manifest, against the
-#                   Kubernetes API schema
-#   3. Groovy       syntax of Jenkinsfiles, vars/, src/ and the seed script,
-#                   parsed with the Groovy version Jenkins uses
-#   4. shellcheck   every shell script
-#   5. actionlint   GitHub Actions workflows
-#   6. gitleaks     secrets in the files you would commit, and in the full
-#                   Git history
+# Static checks for the whole repo, run by `make lint` and in GitHub Actions.
 #
 # Every tool runs in its official container image, so the only requirement is
 # Docker. Versions of the tools that Jenkins also runs (hadolint, kustomize,

@@ -57,7 +57,7 @@ This workflow tests the platform code in this repo. Jenkins builds and deploys t
 
 ## End-to-end scenarios
 
-These run the real pipeline in your local Jenkins (see [SETUP.md](SETUP.md)). Each scenario is a small change you push to `develop`. Each was run on the local demo, and the messages shown come from those runs.
+These run the real pipeline in your local Jenkins (see [SETUP.md](SETUP.md)). Each scenario is a small change you push, usually to `develop`. All of them were run on the local demo, against a local Git server instead of GitHub, and the messages shown come from those runs.
 
 Useful while you test:
 
@@ -88,7 +88,7 @@ Merge `develop` into `main` (or push to `main`).
 **Expected:** the build stops at **Manual Approval** with *Deploy &lt;image&gt; to prod (kind-cicd-demo/demo-prod)?*. While it waits, it holds no executor, so other builds keep running.
 
 - Click **Deploy to prod**: the log shows `Approved by admin`, then the deploy and smoke test run on `demo-prod` (3 replicas).
-- Click **Abort** instead: the build ends `ABORTED` and nothing is deployed. If nobody answers within 30 minutes (`approvalTimeoutMinutes`), the same happens.
+- Click **Abort** instead: the build ends `ABORTED` and nothing is deployed. If nobody answers within 30 minutes (`approvalTimeoutMinutes`), the same happens; that timeout was not waited out locally.
 
 ### 3. Feature branch: build and test only
 
@@ -96,7 +96,7 @@ Merge `develop` into `main` (or push to `main`).
 git checkout -b feature/demo && git push -u origin feature/demo
 ```
 
-**Expected:** Jenkins discovers the branch. Checkout to Security Scan run, then `Push Image` and every deploy stage are *skipped due to when conditional*. The log says `Deploys to: nothing (build + test only for this branch)`. Pull requests (`PR-*`) behave the same way.
+**Expected:** Jenkins discovers the branch. Checkout to Security Scan run, then `Push Image` and every deploy stage are *skipped due to when conditional*. The log says `Deploys to: nothing (build + test only for this branch)`. Pull requests (`PR-*`) should behave the same way; not tested locally, because the local Git server has no pull requests.
 
 ### 4. A failing unit test stops the build
 

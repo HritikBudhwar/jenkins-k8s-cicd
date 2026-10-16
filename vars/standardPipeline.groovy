@@ -36,7 +36,7 @@ def call(Map userConfig = [:]) {
 
         options {
             timeout(time: cfg.pipelineTimeoutMinutes, unit: 'MINUTES')    // never hang forever
-            timestamps()                                                    // time on every log line
+            timestamps()
             buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '10'))
             disableConcurrentBuilds()            // two deploys of one branch must not race
             skipDefaultCheckout(true)            // checkout is an explicit, retried stage below

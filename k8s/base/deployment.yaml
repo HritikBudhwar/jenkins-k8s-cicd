@@ -11,15 +11,16 @@ spec:
   # never scales below what the HPA would choose anyway.
   replicas: 2
   revisionHistoryLimit: 5          # old ReplicaSets kept for `kubectl rollout undo`
-  progressDeadlineSeconds: 120     # mark the rollout as failed if it makes no progress
+  progressDeadlineSeconds: 120
   selector:
     matchLabels:
       app: demo-app
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxSurge: 1                  # start one extra new pod at a time...
-      maxUnavailable: 0            # ...and never remove an old pod before a new one is Ready
+      maxSurge: 1
+      # Old pods keep serving until a new one is Ready; the automatic rollback relies on this.
+      maxUnavailable: 0
   template:
     metadata:
       labels:
@@ -27,11 +28,11 @@ spec:
     spec:
       automountServiceAccountToken: false   # the app never talks to the K8s API
       securityContext:
-        runAsNonRoot: true                  # kubelet refuses to start the pod as root
+        runAsNonRoot: true
         runAsUser: 10001                    # matches the user in app/Dockerfile
         runAsGroup: 10001
         seccompProfile:
-          type: RuntimeDefault              # default syscall filter
+          type: RuntimeDefault
       containers:
         - name: demo-app
           # "demo-app" is a placeholder; the pipeline runs
@@ -47,24 +48,24 @@ spec:
           securityContext:
             privileged: false
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true    # app cannot write to its own image
+            readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
           resources:
-            requests:                       # what the scheduler reserves
+            requests:
               cpu: 50m
               memory: 64Mi
-            limits:                         # hard cap; over the memory limit = OOMKilled
+            limits:
               cpu: 250m
               memory: 128Mi
-          readinessProbe:                   # failing = removed from Service endpoints
+          readinessProbe:
             httpGet:
               path: /ready
               port: http
             initialDelaySeconds: 3
             periodSeconds: 5
             failureThreshold: 3
-          livenessProbe:                    # failing = container is restarted
+          livenessProbe:
             httpGet:
               path: /health
               port: http

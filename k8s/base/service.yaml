@@ -8,7 +8,8 @@ metadata:
   labels:
     app: demo-app
   annotations:
-    # Convention used by many Prometheus scrape configs (see docs/MONITORING.md).
+    # For Prometheus setups that discover targets by annotation. The PodMonitor
+    # example in docs/MONITORING.md does not need them.
     prometheus.io/scrape: "true"
     prometheus.io/port: "8080"
     prometheus.io/path: /metrics

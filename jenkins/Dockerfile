@@ -1,14 +1,7 @@
-# ---------------------------------------------------------------------------
-# Custom Jenkins controller image:
-#   - pinned Jenkins LTS (tag + digest)
-#   - pinned plugins (plugins.txt), installed at build time, not by clicking
-#   - Configuration-as-Code (casc/jenkins.yaml), so no setup wizard
-#   - the CLI tools the pipeline calls, copied from their official images
-#
-# Each tool comes from its publisher's image at a pinned version. That works
-# on Intel and Apple-Silicon/ARM laptops alike (multi-arch images) and needs
-# no curl | sh downloads. All of these binaries are statically linked.
-# ---------------------------------------------------------------------------
+# Jenkins controller with pinned plugins, its config baked in, and the CLI
+# tools the pipeline calls. The tools are copied from their publishers' images
+# at pinned versions instead of curl | sh downloads; they are static binaries,
+# so they run on the Debian-based Jenkins image.
 FROM docker:29.9.0-cli AS docker-cli
 FROM docker/buildx-bin:0.38.0 AS buildx
 FROM registry.k8s.io/kubectl:v1.36.4 AS kubectl

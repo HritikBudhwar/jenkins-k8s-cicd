@@ -1,11 +1,9 @@
 import org.devops.PipelineConfig
 
 /**
- * lintRepo: static checks that are cheap and catch mistakes before a build.
- *   1. hadolint    : Dockerfile best practices (pinned versions, no root, etc.)
- *   2. kubeconform : renders every Kustomize overlay used by a deploy target and
- *                    validates it against the Kubernetes API schema, so a typo
- *                    in a manifest fails here and not halfway through a deploy.
+ * lintRepo: hadolint on the Dockerfile, then render every overlay a deploy
+ * target uses and validate it with kubeconform, so a typo in a manifest fails
+ * here instead of halfway through a deploy.
  *
  * Usage: lintRepo(cfg)
  */

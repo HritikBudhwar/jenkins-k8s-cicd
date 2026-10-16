@@ -1,6 +1,6 @@
 # Scales the Deployment on CPU usage. Needs metrics-server in the cluster.
 # kind does not ship metrics-server, so locally the HPA shows <unknown> CPU
-# and simply keeps minReplicas. That is expected and harmless.
+# and keeps minReplicas.
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:

@@ -1,6 +1,6 @@
 # Security
 
-This page explains how the pipeline protects secrets, clusters and images. It also lists what the local demo trades away for convenience, and what to change before running this setup for a real team.
+How secrets, cluster access and images are protected, what the local demo gives up for convenience, and what to change before a real team uses it.
 
 - [Secrets](#secrets)
 - [Kubernetes access: least privilege](#kubernetes-access-least-privilege)
@@ -24,7 +24,7 @@ This page explains how the pipeline protects secrets, clusters and images. It al
 Inside the pipeline:
 
 - Credentials are only used inside `withCredentials` / `withKubeConfig`. Jenkins masks their values in the build log. `withKubeConfig` writes the kubeconfig to a temporary file and deletes it when the step ends.
-- The registry password goes to `docker login --password-stdin`, never on a command line where `ps` would show it. The shell command is in single quotes, so Groovy never puts the secret into the script text. `DOCKER_CONFIG` points into the workspace, so the login token is deleted with the workspace.
+- Not tested locally, because the local registry needs no login: the registry password goes to `docker login --password-stdin`, never on a command line where `ps` would show it. The shell command is in single quotes, so Groovy never puts the secret into the script text. `DOCKER_CONFIG` points into the workspace, so the login token is deleted with the workspace.
 - `.gitignore` excludes `.env`, `*kubeconfig*`, `*.pem`, `*.key` and `local-setup/.secrets/`.
 
 **Secret scanning** catches mistakes:
@@ -73,7 +73,7 @@ From `app/Dockerfile` and `k8s/base/deployment.yaml`:
 - `allowPrivilegeEscalation: false`, all Linux capabilities dropped, `seccompProfile: RuntimeDefault`
 - `automountServiceAccountToken: false`: the app has no Kubernetes API token
 - CPU and memory requests and limits
-- **NetworkPolicy:** default deny; ingress only on port 8080 from the same namespace and from a `monitoring` namespace; egress only DNS
+- **NetworkPolicy:** default deny; ingress only on port 8080 from the same namespace and from a `monitoring` namespace; egress only DNS. Checked on kind: a pod in `default` cannot reach the app, a pod in `demo-dev` can.
 
 ## Jenkins hardening
 
@@ -82,7 +82,7 @@ From `app/Dockerfile` and `k8s/base/deployment.yaml`:
 - `/prometheus/` metrics require a login.
 - Jenkins and the registry listen on `127.0.0.1` only. Expose Jenkins to GitHub through an HTTPS tunnel (ngrok), never by binding to `0.0.0.0`.
 - The controller runs as UID 1000, not root. Plugins and the JCasC file are baked into the image and read-only for the jenkins user. Configuration changed in the UI is overwritten at the next restart, so Git stays the source of truth.
-- Fork pull requests are **not** built: untrusted code must not run with the pipeline's credentials. Only branches and PRs from the repo itself are discovered.
+- Fork pull requests are **not** built: untrusted code must not run with the pipeline's credentials. Only branches and PRs from the repo itself are discovered. (Configured in `seedJob.groovy`; not tested locally.)
 
 ## Known trade-offs of the local demo
 

@@ -1,4 +1,4 @@
-# Dev overlay: small and cheap. One replica, low resources, debug logging.
+# Dev overlay: one replica and low resources.
 # The pipeline adds an `images:` entry here at deploy time
 # (`kustomize edit set image`) and can override the namespace from the
 # deploy target config. Neither change is committed.

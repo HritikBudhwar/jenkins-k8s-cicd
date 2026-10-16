@@ -25,7 +25,9 @@ This guide takes you from a fresh clone to a working pipeline. A push to GitHub 
 - **Resources:** give Docker at least 4 CPUs and 6 GB of memory. Keep about 15 GB of disk free for the Jenkins image, the kind node, the Trivy vulnerability database and the build images.
 - **Ports:** `127.0.0.1:8080` (Jenkins) and `127.0.0.1:5001` (registry) must be free.
 - **kind and kubectl** do not need to be installed: `make cluster` downloads pinned, checksum-verified copies to `local-setup/.bin/` if they are not on your `PATH`.
-- **Intel or ARM** (Apple Silicon): every image used is multi-arch.
+- **ARM** (Apple Silicon): the images used publish ARM builds, but this was not tested on an ARM machine.
+
+Only tested on Ubuntu Linux. The macOS and Windows columns above are not tested locally.
 
 **Windows:** run every command in a WSL2 Ubuntu terminal, not in PowerShell or Git Bash. Clone the repo inside the Linux file system (for example `~/jenkins-k8s-cicd`), not under `/mnt/c/`. That keeps file permissions and line endings intact and is much faster. In Docker Desktop, turn on *Settings > Resources > WSL integration* for your Ubuntu distribution.
 
@@ -57,6 +59,8 @@ On GitHub go to *Settings > Developer settings > Personal access tokens > Fine-g
 - **Expiration:** pick a date and put a reminder in your calendar. When the token expires, branch scans fail with `401 Bad credentials`.
 
 Copy the token. GitHub shows it only once.
+
+Not tested locally: the local test ran against a local Git server with a dummy token, so this exact permission set has not been tried against GitHub.
 
 ## 4. Configure
 
@@ -135,6 +139,8 @@ ngrok http 8080
    - **Events:** *Let me select individual events*: **Pushes** and **Pull requests**
 3. Save. In the webhook's *Recent Deliveries* tab, the `ping` event should show a 200 response.
 4. Push a commit to `develop`. The build starts within seconds.
+
+Not tested end to end locally. What was tested: Jenkins returns 200 for a delivery signed with the secret and `400 No valid signature found` for an unsigned or wrongly signed one.
 
 Jenkins rejects deliveries that are not signed with the shared secret. On ngrok's free plan the URL changes every time you restart ngrok. When it does, update the webhook's Payload URL and `JENKINS_URL`.
 
@@ -242,6 +248,8 @@ For other clusters, re-run `k8s/rbac/generate-kubeconfig.sh` for that namespace,
 | `make clean` | Delete everything: containers, Jenkins data, registry images, the kind cluster, kubeconfigs |
 
 ## Troubleshooting
+
+The GitHub token, webhook, expired-token and Windows rows were not reproduced locally.
 
 | Symptom | Cause and fix |
 |---|---|

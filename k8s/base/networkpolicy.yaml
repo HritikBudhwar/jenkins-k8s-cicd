@@ -2,8 +2,8 @@
 #   ingress: port 8080 from pods in the same namespace and from a "monitoring"
 #            namespace (Prometheus)
 #   egress : DNS only (the app calls nothing else)
-# NetworkPolicy is enforced only when the CNI supports it (kind's kindnet does
-# since kind v0.24; Calico/Cilium do as well).
+# Only enforced if the CNI supports NetworkPolicy. Checked on the local kind
+# cluster: a pod in "default" cannot reach the app, a pod in demo-dev can.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

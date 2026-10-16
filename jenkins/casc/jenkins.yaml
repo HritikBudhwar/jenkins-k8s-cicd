@@ -61,8 +61,9 @@ credentials:
               secretBytes: "${readFileBase64:/run/secrets/kubeconfig-prod}"
 
 security:
-  # Job DSL scripts come only from the platform repo (protected branch, admins only),
-  # so they run without the script-security sandbox. See docs/SECURITY.md.
+  # Job DSL scripts come only from this repo, so they run without the
+  # script-security sandbox. That makes branch protection on main important
+  # (docs/SECURITY.md).
   globalJobDslSecurityConfiguration:
     useScriptSecurity: false
 
@@ -98,8 +99,8 @@ unclassified:
 
 # The seed job: reads jenkins/seed/repos.yaml and creates/updates one
 # Multibranch Pipeline per repo (jenkins/seed/seedJob.groovy).
-# It polls the platform repo, so editing repos.yaml and pushing is all it takes
-# to onboard a repo or cluster. Run it by hand once after the first start.
+# It polls this repo every 5 minutes (it also runs on its own after the first
+# start), so editing repos.yaml and pushing is all it takes to onboard a repo.
 jobs:
   - script: |
       pipelineJob('seed-job') {

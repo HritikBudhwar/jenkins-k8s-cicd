@@ -1,6 +1,6 @@
 # Force LF line endings for scripts and config, even on Windows checkouts.
 # A shell script with CRLF endings fails inside Linux containers with
-# "bad interpreter: /bin/bash^M", which is the most common Windows/WSL pitfall.
+# "bad interpreter: /bin/bash^M".
 * text=auto eol=lf
 *.sh text eol=lf
 *.groovy text eol=lf

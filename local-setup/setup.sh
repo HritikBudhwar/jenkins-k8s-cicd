@@ -1,14 +1,9 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------
-# Creates the local Kubernetes side of the demo (run via `make cluster`):
-#   1. kind cluster "cicd-demo" (downloads pinned kind/kubectl to .bin/ if missing)
-#   2. tells the kind node that localhost:5001 means the "kind-registry" container
-#   3. namespaces demo-dev and demo-prod (they stand in for two clusters)
-#   4. the least-privilege jenkins-deployer ServiceAccount + Role in each
-#   5. one kubeconfig per namespace in local-setup/.secrets/ (git-ignored),
-#      which docker compose mounts into Jenkins as credentials
-#   6. checks that the permissions are what we expect
-# Safe to run more than once.
+# Creates the Kubernetes side of the local demo (run via `make cluster`): the
+# kind cluster, the registry mapping, the demo-dev and demo-prod namespaces
+# (standing in for two clusters) with a least-privilege deployer each, and one
+# kubeconfig per namespace for Jenkins. Safe to run more than once.
 # ---------------------------------------------------------------------------
 set -euo pipefail
 

@@ -1,18 +1,11 @@
 /**
- * notify: report the pipeline result, success or failure, in one consistent format.
+ * notify: print one summary block at the end of every build (image, where it
+ * was deployed and, on failure, the stage and reason recorded by
+ * failPipeline) and set the build description shown in the build list.
  *
- * What it does today (all exercised by the local demo):
- *   - prints a summary block at the end of the console log: app, branch,
- *     commit, image, where it was deployed and, on failure, the stage and the
- *     reason recorded by failPipeline()
- *   - sets the build description, so the build list shows "3f2a9c1-17 -> dev"
- *     or "FAILED in Security Scan" at a glance
- * GitHub commit/PR status ("Jenkins: success/failure" checks) is reported
- * automatically by the GitHub Branch Source plugin; no code is needed here.
- *
- * Extension point: add slackSend/mail/office365ConnectorSend below if a chat
- * plugin is installed and configured. They are not included because the
- * local demo has no chat server to test them against.
+ * GitHub commit statuses come from the GitHub Branch Source plugin, not from
+ * here (not tested locally). Chat notifications (slackSend, mail) would go
+ * here; they are left out because there was no chat server to test against.
  *
  * Usage: notify(cfg, 'SUCCESS' | 'FAILURE' | 'ABORTED')
  */

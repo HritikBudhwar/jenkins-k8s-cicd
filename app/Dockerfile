@@ -1,21 +1,15 @@
-# ---------------------------------------------------------------------------
-# demo-app image. Three stages:
-#   deps    : install pinned Python packages into /install
-#   test    : runs the unit tests (the pipeline builds this with --target test)
-#   runtime : final image; only the app code and runtime packages, non-root
-# The base image is pinned by tag AND digest, so a rebuild can never pull a
-# different image silently. Renovate/Dependabot can bump both together.
-# ---------------------------------------------------------------------------
+# Three stages so the tests run on the same Python as production while the
+# runtime image carries no test tools. The pipeline runs the tests with
+# --target test. The base image is pinned by digest so a rebuild cannot
+# silently pick up a different image.
 ARG PYTHON_IMAGE=python:3.12.15-slim-trixie@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
 
-# ---- deps: build the dependency layer once, reuse it in test and runtime ----
 FROM ${PYTHON_IMAGE} AS deps
 WORKDIR /build
 COPY requirements.txt .
 # --prefix installs into /install so the runtime stage can copy just that folder.
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
-# ---- test: same Python as production, plus pytest ---------------------------
 FROM ${PYTHON_IMAGE} AS test
 WORKDIR /src
 COPY --from=deps /install /usr/local
@@ -27,7 +21,6 @@ COPY tests/ ./tests/
 # report out of the stopped container even when tests fail.
 CMD ["pytest", "-v", "--junitxml=/src/reports/junit.xml", "tests/"]
 
-# ---- runtime: the image that is pushed and deployed ------------------------
 FROM ${PYTHON_IMAGE} AS runtime
 
 # Values passed with --build-arg by the pipeline; shown by the "/" endpoint.
@@ -67,8 +60,7 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
 
-# gunicorn is a production WSGI server (Flask's built-in server is for development only).
-# One worker with threads keeps the Prometheus counters in a single process,
+# One gunicorn worker with threads keeps the Prometheus counters in a single process,
 # so /metrics always reports totals for the whole container.
 CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "4", \
      "--access-logfile", "-", "--worker-tmp-dir", "/tmp", "app:app"]
